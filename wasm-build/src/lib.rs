@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 use std::mem;
 use std::slice;
 use tree_sitter::{Language, Node, Parser, Tree};
@@ -13,13 +15,13 @@ static mut RESULT_BUF: Vec<u8> = Vec::new();
 
 // --- Memory exports for the host ---
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn alloc(size: i32) -> i32 {
     let layout = std::alloc::Layout::from_size_align(size as usize, 1).unwrap();
     unsafe { std::alloc::alloc(layout) as i32 }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn dealloc(ptr: i32, size: i32) {
     let layout = std::alloc::Layout::from_size_align(size as usize, 1).unwrap();
     unsafe { std::alloc::dealloc(ptr as *mut u8, layout) }
@@ -33,12 +35,12 @@ fn set_result(s: &[u8]) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn get_result_ptr() -> i32 {
     unsafe { RESULT_BUF.as_ptr() as i32 }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn get_result_len() -> i32 {
     unsafe { RESULT_BUF.len() as i32 }
 }
@@ -68,7 +70,7 @@ fn get_language(lang_id: i32) -> Option<Language> {
 
 // --- Parser API ---
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn parser_new() -> i32 {
     let parser = Parser::new();
     unsafe {
@@ -78,7 +80,7 @@ pub extern "C" fn parser_new() -> i32 {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn parser_delete(handle: i32) {
     unsafe {
         if let Some(slot) = PARSERS.get_mut(handle as usize) {
@@ -88,7 +90,7 @@ pub extern "C" fn parser_delete(handle: i32) {
 }
 
 /// Set the language for a parser. Returns 0 on success, -1 on error.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn parser_set_language(parser_handle: i32, lang_id: i32) -> i32 {
     unsafe {
         let parser = match PARSERS.get_mut(parser_handle as usize) {
@@ -109,7 +111,7 @@ pub extern "C" fn parser_set_language(parser_handle: i32, lang_id: i32) -> i32 {
 // --- Parse API ---
 
 /// Parse a string. Returns tree handle, or -1 on error.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn parser_parse_string(parser_handle: i32, source_ptr: i32, source_len: i32) -> i32 {
     unsafe {
         let parser = match PARSERS.get_mut(parser_handle as usize) {
@@ -135,7 +137,7 @@ pub extern "C" fn parser_parse_string(parser_handle: i32, source_ptr: i32, sourc
 // --- Tree API ---
 
 /// Get the root node of a tree. Returns node handle, or -1 on error.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn tree_root_node(tree_handle: i32) -> i32 {
     unsafe {
         let tree = match TREES.get(tree_handle as usize) {
@@ -147,7 +149,7 @@ pub extern "C" fn tree_root_node(tree_handle: i32) -> i32 {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn tree_delete(tree_handle: i32) {
     unsafe {
         if let Some(slot) = TREES.get_mut(tree_handle as usize) {
@@ -172,7 +174,7 @@ fn get_node(handle: i32) -> Option<&'static Node<'static>> {
 }
 
 /// Get the type of a node. Result available via get_result_ptr/get_result_len.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_type(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => {
@@ -183,7 +185,7 @@ pub extern "C" fn node_type(node_handle: i32) -> i32 {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_child_count(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => node.child_count() as i32,
@@ -191,7 +193,7 @@ pub extern "C" fn node_child_count(node_handle: i32) -> i32 {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_named_child_count(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => node.named_child_count() as i32,
@@ -200,7 +202,7 @@ pub extern "C" fn node_named_child_count(node_handle: i32) -> i32 {
 }
 
 /// Get a named child node by index. Returns node handle, or -1 if not found.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_named_child(node_handle: i32, index: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => match node.named_child(index as usize) {
@@ -212,7 +214,7 @@ pub extern "C" fn node_named_child(node_handle: i32, index: i32) -> i32 {
 }
 
 /// Get a child node by index. Returns node handle, or -1 if not found.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_child(node_handle: i32, index: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => match node.child(index as usize) {
@@ -224,7 +226,7 @@ pub extern "C" fn node_child(node_handle: i32, index: i32) -> i32 {
 }
 
 /// Get the s-expression of a node. Result available via get_result_ptr/get_result_len.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_string(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => {
@@ -237,7 +239,7 @@ pub extern "C" fn node_string(node_handle: i32) -> i32 {
 }
 
 /// Get the start byte of a node.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_start_byte(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => node.start_byte() as i32,
@@ -246,7 +248,7 @@ pub extern "C" fn node_start_byte(node_handle: i32) -> i32 {
 }
 
 /// Get the end byte of a node.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_end_byte(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => node.end_byte() as i32,
@@ -255,7 +257,7 @@ pub extern "C" fn node_end_byte(node_handle: i32) -> i32 {
 }
 
 /// Check if a node is named.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_is_named(node_handle: i32) -> i32 {
     match get_node(node_handle) {
         Some(node) => if node.is_named() { 1 } else { 0 },
